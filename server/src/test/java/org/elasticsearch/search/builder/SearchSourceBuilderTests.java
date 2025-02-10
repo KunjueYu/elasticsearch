@@ -1012,7 +1012,7 @@ public class SearchSourceBuilderTests extends AbstractSearchTestCase {
                     ScriptSortBuilder.ScriptSortType.NUMBER
                 ).order(randomFrom(SortOrder.values()))
             );
-            assertFalse(searchSourceBuilder.supportsParallelCollection(fieldCardinality));
+            assertTrue(searchSourceBuilder.supportsParallelCollection(fieldCardinality));
         }
         {
             SearchSourceBuilder searchSourceBuilder = newSearchSourceBuilder.get();

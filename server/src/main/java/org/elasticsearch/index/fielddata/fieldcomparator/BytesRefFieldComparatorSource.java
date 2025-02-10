@@ -67,6 +67,20 @@ public class BytesRefFieldComparatorSource extends IndexFieldData.XFieldComparat
         return indexFieldData.load(context).getBytesValues();
     }
 
+    protected BinaryDocValues getBinaryDocValues(LeafReaderContext context, BytesRef missingBytes, SortedBinaryDocValues values)
+        throws IOException {
+        final BinaryDocValues selectedValues;
+        if (nested == null) {
+            selectedValues = sortMode.select(values, missingBytes);
+        } else {
+            final BitSet rootDocs = nested.rootDocs(context);
+            final DocIdSetIterator innerDocs = nested.innerDocs(context);
+            final int maxChildren = nested.getNestedSort() != null ? nested.getNestedSort().getMaxChildren() : Integer.MAX_VALUE;
+            selectedValues = sortMode.select(values, missingBytes, rootDocs, innerDocs, maxChildren);
+        }
+        return selectedValues;
+    }
+
     protected void setScorer(Scorable scorer) {}
 
     @Override
@@ -101,29 +115,28 @@ public class BytesRefFieldComparatorSource extends IndexFieldData.XFieldComparat
 
             };
         }
+        return newComparatorWithoutOrdinal(fieldname, numHits, enableSkipping, reversed, missingBytes, sortMissingLast);
+    }
 
+    protected FieldComparator<?> newComparatorWithoutOrdinal(
+        String fieldname,
+        int numHits,
+        Pruning enableSkipping,
+        boolean reversed,
+        BytesRef missingBytes,
+        boolean sortMissingLast
+    ) {
         return new FieldComparator.TermValComparator(numHits, null, sortMissingLast) {
 
             @Override
             protected BinaryDocValues getBinaryDocValues(LeafReaderContext context, String field) throws IOException {
-                final SortedBinaryDocValues values = getValues(context);
-                final BinaryDocValues selectedValues;
-                if (nested == null) {
-                    selectedValues = sortMode.select(values, missingBytes);
-                } else {
-                    final BitSet rootDocs = nested.rootDocs(context);
-                    final DocIdSetIterator innerDocs = nested.innerDocs(context);
-                    final int maxChildren = nested.getNestedSort() != null ? nested.getNestedSort().getMaxChildren() : Integer.MAX_VALUE;
-                    selectedValues = sortMode.select(values, missingBytes, rootDocs, innerDocs, maxChildren);
-                }
-                return selectedValues;
+                return BytesRefFieldComparatorSource.this.getBinaryDocValues(context, missingBytes, getValues(context));
             }
 
             @Override
             public void setScorer(Scorable scorer) {
                 BytesRefFieldComparatorSource.this.setScorer(scorer);
             }
-
         };
     }
 
